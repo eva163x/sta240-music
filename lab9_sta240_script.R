@@ -1,17 +1,35 @@
 library(gm)
-
-#does my git work??
-
-#hiii
-
 # ===============================================
 # Set up available pitches
 # ===============================================
 
-pitches_base <- c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-octaves <- 3:5
-all_pitches <- paste(rep(pitches_base, length(octaves)), 
+pitches_base <- c("C", "D", "E", "F", "G", "A", "B")
+octaves <- 4:5
+all_pitches <- paste(rep(pitches_base, length(octaves)),
                      sort(rep(octaves, length(pitches_base))), sep = "")
+
+# ===============================================
+# Chords
+# ===============================================
+
+# I–V–vi–IV chord progression (C major)
+# C–G–Am–F
+chords <- list(
+  c("C3", "E3", "G3"),    # I
+  c("G2", "B2", "D3"),    # V
+  c("A2", "C3", "E3"),    # vi
+  c("F2", "A2", "C3")     # IV
+)
+
+# ===============================================
+# Melody
+# ===============================================
+
+melody_notes <- sample(all_pitches, 64, replace=TRUE)
+melody_durations <- sample(c(0.5, 1, 2), size=64, replace=TRUE, prob=c(0.4, 0.4, 0.2))
+
+#total duration of the melody
+total_melody_duration <- sum(melody_durations)
 
 # ===============================================
 # random walk on the elements of a vector
@@ -46,63 +64,64 @@ random_walk <- function(vec, start_pos, steps) {
 }
 
 # ===============================================
-# Setup
+# Setup (customize music settings)
 # ===============================================
 
-set.seed(123)
-
-meter_options <- list(c(3, 4), c(4, 4), c(6, 8)) # 3/4, 4/4, or 6/8
-
-meter <- sample(meter_options, 1)[[1]]
-
-tempo <- sample(80:120, 1)  # BPM between 80 and 120
-
-key <- sample(-7:7, 1)  # Key from 7 sharps to 7 flats
-
-instrument_choices <- c(1, 5, 10, 20, 40, 41, 42, 72, 74)  # various MIDI instruments
-
-melody_notes <- random_walk(all_pitches, start_pos = sample(1:length(all_pitches), 1), steps = 31)
-
-durations <- sample(c(0.5, 1, 1.5, 2), size = length(melody_notes), replace = TRUE)
-
-# ===============================================
-# Music settings
-# ===============================================
-
-my_meter <- c(4, 4)  # 4 beats per bar
-my_tempo <- 100      # bpm
-my_key <- 0          # 0 sharps/flats (A minor shares key signature with C major)
-
-# ===============================================
-# Chords
-# ===============================================
-
-chords <- list(
-  c("A3", "C4", "E4"),   # A minor
-  c("D3", "F3", "A3"),   # D minor
-  c("G3", "B3", "D4"),   # G major
-  c("A3", "C4", "E4")    # A minor again
-)
+set.seed(42)
+tempo <- sample(90:110, 1)  # Pop tempo
+meter <- c(4, 4)
+key <- 0 #for C major, no sharps/flats
 
 # ===============================================
 # Start the music
 # ===============================================
 
-music <- Music() + 
-  Meter(meter[1], meter[2]) + 
-  Tempo(tempo) + 
+music <- Music() +
+  Meter(meter[1], meter[2]) +
+  Tempo(tempo) +
   Key(key)
 
 # ===============================================
 # Build random music lines
 # ===============================================
 
-for (i in 1:10) {  # I made 10 loops for faster testing
-  music <- music + 
-    Line(pitches = sample(melody_notes, 20, replace = TRUE),
-         durations = sample(c(2, 1, 0.5, 0.25), 20, replace = TRUE)) + 
-    Instrument(sample(instrument_choices, 1))
+#chord duration should match melody duration...
+current_chord_duration <- 0
+chord_index <- 1
+all_chord_pitches <- list()
+all_chord_durations <- numeric()
+
+while (current_chord_duration < total_melody_duration) {
+  # adding the current chord from the progression
+  all_chord_pitches[[length(all_chord_pitches) + 1]] <- chords[[chord_index]]
+  
+  # what is duration for this chord.
+  chord_duration_to_add <- 4 #4 beats per chord for now
+  
+  #pls work-- we shouldn't go over the total melody duration
+  if (current_chord_duration + chord_duration_to_add > total_melody_duration) {
+    chord_duration_to_add <- total_melody_duration - current_chord_duration
+  }
+  
+  all_chord_durations <- c(all_chord_durations, chord_duration_to_add)
+  current_chord_duration <- current_chord_duration + chord_duration_to_add
+  
+  # move tp next chord in the progression, looping if necessary
+  chord_index <- (chord_index %% length(chords)) + 1
 }
+
+#adding the chords to the music
+music <- music +
+  Line(pitches = all_chord_pitches,
+       durations = all_chord_durations) +
+  Instrument(1) # piano
+
+# melody
+music <- music +
+  Line(pitches = melody_notes,
+       durations = melody_durations) +
+  Instrument(1) # violin
+
 
 # ===============================================
 # Show the music!
